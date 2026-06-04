@@ -254,6 +254,10 @@ func migrateDB() error {
 	if err := migrateTokenModelLimitsToText(); err != nil {
 		return err
 	}
+	// Migrate token key column to varchar(128) safely for TiDB/MySQL
+	if err := migrateTokenKeyToVarchar128(); err != nil {
+		return err
+	}
 
 	err := DB.AutoMigrate(
 		&Channel{},
@@ -504,6 +508,66 @@ func migrateTokenModelLimitsToText() error {
 			return fmt.Errorf("failed to migrate %s.%s to text: %w", tableName, columnName, err)
 		}
 		common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to text", tableName, columnName))
+	}
+	return nil
+}
+
+// migrateTokenKeyToVarchar128 migrates token key column to varchar(128) safely for TiDB/MySQL
+func migrateTokenKeyToVarchar128() error {
+	if common.UsingSQLite {
+		return nil
+	}
+	tableName := "tokens"
+	columnName := "key"
+
+	if !DB.Migrator().HasTable(tableName) {
+		return nil
+	}
+
+	if !DB.Migrator().HasColumn(&Token{}, columnName) {
+		return nil
+	}
+
+	var alterSQL string
+	if common.UsingPostgreSQL {
+		var dataType string
+		var charLen int
+		err := DB.Raw(`SELECT data_type, character_maximum_length FROM information_schema.columns
+			WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`,
+			tableName, columnName).Row().Scan(&dataType, &charLen)
+		if err == nil && dataType == "character varying" && charLen == 128 {
+			return nil
+		}
+		alterSQL = fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN %s TYPE varchar(128)`, tableName, columnName)
+	} else if common.UsingMySQL {
+		var columnType string
+		if err := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
+				WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
+			tableName, columnName).Scan(&columnType).Error; err != nil {
+			common.SysLog(fmt.Sprintf("Warning: failed to query metadata for %s.%s: %v", tableName, columnName, err))
+		} else if strings.Contains(strings.ToLower(columnType), "varchar(128)") {
+			return nil
+		}
+
+		common.SysLog("Detected tokens.key needs upgrade. Dropping index and modifying column...")
+
+		// Drop indexes if they exist to avoid TiDB column constraint change error
+		for _, idxName := range []string{"key", "idx_tokens_key"} {
+			if DB.Migrator().HasIndex(&Token{}, idxName) {
+				_ = DB.Migrator().DropIndex(&Token{}, idxName)
+			}
+		}
+
+		alterSQL = fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN `%s` varchar(128) NOT NULL", tableName, columnName)
+	} else {
+		return nil
+	}
+
+	if alterSQL != "" {
+		if err := DB.Exec(alterSQL).Error; err != nil {
+			return fmt.Errorf("failed to migrate %s.%s to varchar(128): %w", tableName, columnName, err)
+		}
+		common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to varchar(128)", tableName, columnName))
 	}
 	return nil
 }
