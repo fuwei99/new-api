@@ -121,6 +121,7 @@ func chooseDB(envName string, isLog bool) (*gorm.DB, error) {
 	}()
 	dsn := os.Getenv(envName)
 	if dsn != "" {
+		common.SysLog(fmt.Sprintf("DB DSN (%s): %s", envName, dsn))
 		if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
 			// Use PostgreSQL
 			common.SysLog("using PostgreSQL as database")
