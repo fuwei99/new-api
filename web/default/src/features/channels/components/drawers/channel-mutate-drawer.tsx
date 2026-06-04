@@ -806,6 +806,31 @@ export function ChannelMutateDrawer({
     await copyToClipboard(models)
   }, [form, copyToClipboard, t])
 
+  const handleAddPrefix = useCallback(() => {
+    const channelName = form.getValues('name')
+    const currentModels = currentModelsArray
+
+    if (!channelName?.trim() || !currentModels || currentModels.length === 0) {
+      toast.error(t('Please enter channel name and select models first'))
+      return
+    }
+
+    const prefixedModels = currentModels.map(
+      (model) => `${channelName}/${model}`
+    )
+
+    const mapping: Record<string, string> = {}
+    prefixedModels.forEach((prefixedModel, index) => {
+      mapping[prefixedModel] = currentModels[index]
+    })
+
+    const modelMappingJson = JSON.stringify(mapping, null, 2)
+
+    updateModels(prefixedModels)
+    form.setValue('model_mapping', modelMappingJson, { shouldDirty: true })
+    toast.success(t('Model prefix added successfully'))
+  }, [currentModelsArray, form, updateModels, t])
+
   // Handle adding prefill group models
   const handleAddPrefillGroup = useCallback(
     (group: { id: number; name: string; items: string | string[] }) => {
@@ -2277,6 +2302,18 @@ export function ChannelMutateDrawer({
                                 {t('Fetch from Upstream')}
                               </Button>
                             )}
+                            <Button
+                              type='button'
+                              variant='outline'
+                              size='sm'
+                              onClick={handleAddPrefix}
+                            >
+                              <Wand2
+                                className='mr-2 h-4 w-4'
+                                aria-hidden='true'
+                              />
+                              {t('Add Prefix')}
+                            </Button>
                             <Button
                               type='button'
                               variant='outline'

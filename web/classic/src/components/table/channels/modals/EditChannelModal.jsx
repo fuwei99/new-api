@@ -1111,6 +1111,31 @@ const EditChannelModal = (props) => {
     return null;
   };
 
+  const handleAddPrefix = () => {
+    const channelName = inputs.name;
+    const currentModels = inputs.models;
+
+    if (!channelName || !currentModels || currentModels.length === 0) {
+      showError(t('请先填写渠道名称并选择模型！'));
+      return;
+    }
+
+    const prefixedModels = currentModels.map(
+      (model) => `${channelName}/${model}`,
+    );
+
+    const mapping = {};
+    prefixedModels.forEach((prefixedModel, index) => {
+      mapping[prefixedModel] = currentModels[index];
+    });
+
+    const modelMappingJson = JSON.stringify(mapping, null, 2);
+
+    handleInputChange('models', prefixedModels);
+    handleInputChange('model_mapping', modelMappingJson);
+    showSuccess(t('模型前缀添加成功！'));
+  };
+
   const openModelMappingValueModal = async ({ pairKey, value }) => {
     const mappingKey = String(pairKey ?? '').trim();
     if (!mappingKey) return;
@@ -3518,6 +3543,13 @@ const EditChannelModal = (props) => {
                               {t('获取模型列表')}
                             </Button>
                           )}
+                          <Button
+                            size='small'
+                            type='tertiary'
+                            onClick={handleAddPrefix}
+                          >
+                            {t('一键添加前缀')}
+                          </Button>
                           <Dropdown
                             trigger='click'
                             position='bottomRight'
