@@ -35,10 +35,17 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 
 func InitHttpClient() {
 	transport := &http.Transport{
-		MaxIdleConns:        common.RelayMaxIdleConns,
-		MaxIdleConnsPerHost: common.RelayMaxIdleConnsPerHost,
-		ForceAttemptHTTP2:   true,
-		Proxy:               http.ProxyFromEnvironment, // Support HTTP_PROXY, HTTPS_PROXY, NO_PROXY env vars
+		Proxy: http.ProxyFromEnvironment, // Support HTTP_PROXY, HTTPS_PROXY, NO_PROXY env vars
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		MaxIdleConns:          common.RelayMaxIdleConns,
+		MaxIdleConnsPerHost:   common.RelayMaxIdleConnsPerHost,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		ForceAttemptHTTP2:     true,
 	}
 	if common.TLSInsecureSkipVerify {
 		transport.TLSClientConfig = common.InsecureTLSConfig
@@ -106,10 +113,17 @@ func NewProxyHttpClient(proxyURL string) (*http.Client, error) {
 	switch parsedURL.Scheme {
 	case "http", "https":
 		transport := &http.Transport{
-			MaxIdleConns:        common.RelayMaxIdleConns,
-			MaxIdleConnsPerHost: common.RelayMaxIdleConnsPerHost,
-			ForceAttemptHTTP2:   true,
-			Proxy:               http.ProxyURL(parsedURL),
+			Proxy: http.ProxyURL(parsedURL),
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			MaxIdleConns:          common.RelayMaxIdleConns,
+			MaxIdleConnsPerHost:   common.RelayMaxIdleConnsPerHost,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			ForceAttemptHTTP2:     true,
 		}
 		if common.TLSInsecureSkipVerify {
 			transport.TLSClientConfig = common.InsecureTLSConfig
@@ -145,9 +159,12 @@ func NewProxyHttpClient(proxyURL string) (*http.Client, error) {
 		}
 
 		transport := &http.Transport{
-			MaxIdleConns:        common.RelayMaxIdleConns,
-			MaxIdleConnsPerHost: common.RelayMaxIdleConnsPerHost,
-			ForceAttemptHTTP2:   true,
+			MaxIdleConns:          common.RelayMaxIdleConns,
+			MaxIdleConnsPerHost:   common.RelayMaxIdleConnsPerHost,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			ForceAttemptHTTP2:     true,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				return dialer.Dial(network, addr)
 			},
