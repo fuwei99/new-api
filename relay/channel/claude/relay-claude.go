@@ -815,6 +815,41 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 				data = patchClaudeMessageDeltaUsageData(data, buildMessageDeltaPatchUsage(&claudeResponse, claudeInfo))
 			}
 		}
+
+		if info.ChannelSetting.ThinkingToContent {
+			if claudeResponse.Type == "content_block_start" && claudeResponse.ContentBlock != nil && claudeResponse.ContentBlock.Type == "thinking" {
+				claudeResponse.ContentBlock.Type = "text"
+				claudeResponse.ContentBlock.Text = common.GetPointer("<think>\n")
+				claudeResponse.ContentBlock.Thinking = nil
+				info.ThinkingContentInfo.IsFirstThinkingContent = false
+				info.ThinkingContentInfo.HasSentThinkingContent = true
+				if jsonData, err := common.Marshal(claudeResponse); err == nil {
+					data = string(jsonData)
+				}
+			} else if claudeResponse.Type == "content_block_delta" && claudeResponse.Delta != nil && claudeResponse.Delta.Type == "thinking_delta" {
+				claudeResponse.Delta.Type = "text_delta"
+				claudeResponse.Delta.Text = claudeResponse.Delta.Thinking
+				claudeResponse.Delta.Thinking = nil
+				if jsonData, err := common.Marshal(claudeResponse); err == nil {
+					data = string(jsonData)
+				}
+			} else if claudeResponse.Type == "content_block_stop" && claudeResponse.Index != nil && *claudeResponse.Index == 0 && info.ThinkingContentInfo.HasSentThinkingContent && !info.ThinkingContentInfo.SendLastThinkingContent {
+				idx := *claudeResponse.Index
+				closeDelta := dto.ClaudeResponse{
+					Type:  "content_block_delta",
+					Index: &idx,
+					Delta: &dto.ClaudeMediaMessage{
+						Type: "text_delta",
+						Text: common.GetPointer("\n</think>\n"),
+					},
+				}
+				info.ThinkingContentInfo.SendLastThinkingContent = true
+				if jsonData, err := common.Marshal(closeDelta); err == nil {
+					helper.ClaudeChunkData(c, closeDelta, string(jsonData))
+				}
+			}
+		}
+
 		helper.ClaudeChunkData(c, claudeResponse, data)
 	} else if info.RelayFormat == types.RelayFormatOpenAI {
 		response := StreamResponseClaude2OpenAI(&claudeResponse)

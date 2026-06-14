@@ -3149,6 +3149,31 @@ export function ChannelMutateDrawer({
                                     </FormItem>
                                   )}
                                 />
+
+                                <FormField
+                                  control={form.control}
+                                  name='preserve_thinking_suffix'
+                                  render={({ field }) => (
+                                    <FormItem className='flex items-center justify-between gap-3 px-4 py-3'>
+                                      <div className='space-y-0.5'>
+                                        <FormLabel className='text-sm'>
+                                          {t('Preserve thinking suffix')}
+                                        </FormLabel>
+                                        <FormDescription>
+                                          {t(
+                                            'Do not strip -thinking suffix from the model name'
+                                          )}
+                                        </FormDescription>
+                                      </div>
+                                      <FormControl>
+                                        <Switch
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                        />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
                               </>
                             )}
                           </div>
